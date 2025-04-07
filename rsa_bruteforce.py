@@ -1,6 +1,6 @@
 import time
 import matplotlib.pyplot as plt
-from Crypto.Util.number import getPrime, inverse
+from Crypto.Util.number import getPrime, inverse, GCD
 from rsa_encrypt import str_to_int, int_to_str
 
 def brute_force_rsa(e, n, ciphertext, timeout):
@@ -20,20 +20,16 @@ def brute_force_rsa(e, n, ciphertext, timeout):
     return None, None, None
 
 def generate_rsa_keypair(bits):
-    
     p = getPrime(bits)
     q = getPrime(bits)
-
     n = p * q
-    phi = (p - 1)*(q - 1)
-
+    phi = (p - 1) * (q - 1)
+    
     e = 65537 if bits >= 16 else 17
-    while True:
-        try:
-            d = inverse(e, phi)
-            break
-        except ValueError:
-            e += 2
+    while GCD(e, phi) != 1:
+        e += 2  
+    
+    d = inverse(e, phi)
     return (e, n), (d, n), p, q
 
 def estimate_256bit_crack_time(elapsed_32bit, bits=256):
@@ -60,8 +56,14 @@ def estimate_supercomputer_time(local_seconds, local_flops=1e11, super_flops=1.1
 
 # === Main Execution ===
 
-message = "A"
-message_int = str_to_int(message)
+messages = {
+    2: "\x01",  # ASCII value 1
+    4: "\x01",  # ASCII value 1
+    8: "\x01",  # ASCII value 1
+    16: "A",    # ASCII value 65
+    32: "A"     # ASCII value 65
+}
+
 bit_lengths = [2, 4, 8, 16, 32]
 timings = []
 
@@ -69,7 +71,10 @@ for bits in bit_lengths:
     print(f"\n🔐 Brute-forcing {bits}-bit RSA...")
     public, private, p, q = generate_rsa_keypair(bits)
     e, n = public
-
+    
+    message = messages[bits]
+    message_int = str_to_int(message)
+    
     if message_int >= n:
         print(f"⚠️ Skipping {bits}-bit: message too large for modulus n={n}")
         timings.append(0)
