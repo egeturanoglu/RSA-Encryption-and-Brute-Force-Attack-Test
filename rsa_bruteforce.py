@@ -31,13 +31,11 @@ def generate_rsa_keypair(bits):
     d = inverse(e, phi)
     return (e, n), (d, n), p, q
 
-# 256-bit modül için (yani 256-bit RSA) tahmin fonksiyonu:
-def estimate_256bit_RSA_time(elapsed_32bit):
-    # 32-bit asal kullanıldığında modül yaklaşık 64-bit (karekök: 2^(64/2) = 2^32)
-    # 256-bit modül için karekök yaklaşık 2^(256/2) = 2^128 adım olacaktır.
-    # Ölçeklendirme faktörü: 2^(128) / 2^(32) = 2^(96)
-    scaling_factor = 2 ** (128 - 32)  # 2^96
-    estimated_time_seconds = elapsed_32bit * scaling_factor
+
+def estimate_256bit_crack_time(elapsed_32bit, bits=256):
+    bit_diff = bits - 32
+    complexity_ratio = 2 ** (bit_diff // 2)
+    estimated_time_seconds = elapsed_32bit * complexity_ratio
     return estimated_time_seconds
 
 def estimate_supercomputer_time(local_seconds, local_flops=1e11, super_flops=1.1e18):
