@@ -28,88 +28,88 @@ def generate_rsa_keypair(bits):
     e = 65537 if bits >= 16 else 17
     while GCD(e, phi) != 1:
         e += 2  
-    
     d = inverse(e, phi)
     return (e, n), (d, n), p, q
 
-def estimate_256bit_crack_time(elapsed_32bit, bits=256):
-    bit_diff = bits - 32
-    complexity_ratio = 2 ** (bit_diff // 2)
-    estimated_time_seconds = elapsed_32bit * complexity_ratio
+# 256-bit modül için (yani 256-bit RSA) tahmin fonksiyonu:
+def estimate_256bit_RSA_time(elapsed_32bit):
+    # 32-bit asal kullanıldığında modül yaklaşık 64-bit (karekök: 2^(64/2) = 2^32)
+    # 256-bit modül için karekök yaklaşık 2^(256/2) = 2^128 adım olacaktır.
+    # Ölçeklendirme faktörü: 2^(128) / 2^(32) = 2^(96)
+    scaling_factor = 2 ** (128 - 32)  # 2^96
+    estimated_time_seconds = elapsed_32bit * scaling_factor
     return estimated_time_seconds
-
-def format_seconds(seconds):
-    if seconds < 60:
-        return f"{seconds:.2e} seconds"
-    elif seconds < 3600:
-        return f"{seconds/60:.2e} minutes"
-    elif seconds < 86400:
-        return f"{seconds/3600:.2e} hours"
-    elif seconds < 31536000:
-        return f"{seconds/86400:.2e} days"
-    else:
-        return f"{seconds/31536000:.2e} years"
 
 def estimate_supercomputer_time(local_seconds, local_flops=1e11, super_flops=1.1e18):
     speedup = super_flops / local_flops
     return local_seconds / speedup
 
-# === Main Execution ===
+def format_seconds(seconds):
+    if seconds < 60:
+        return f"{seconds:.2e} saniye"
+    elif seconds < 3600:
+        return f"{seconds/60:.2e} dakika"
+    elif seconds < 86400:
+        return f"{seconds/3600:.2e} saat"
+    elif seconds < 31536000:
+        return f"{seconds/86400:.2e} gün"
+    else:
+        return f"{seconds/31536000:.2e} yıl"
 
+# === Ana Yürütme ===
 messages = {
-    2: "\x01",  # ASCII value 1
-    4: "\x01",  # ASCII value 1
-    8: "\x01",  # ASCII value 1
-    16: "A",    # ASCII value 65
-    32: "A"     # ASCII value 65
+    2: "\x01",  # ASCII 1
+    4: "\x01",
+    8: "\x01",
+    16: "A",
+    32: "A"
 }
 
 bit_lengths = [2, 4, 8, 16, 32]
 timings = []
 
 for bits in bit_lengths:
-    print(f"\n🔐 Brute-forcing {bits}-bit RSA...")
+    print(f"\n🔐 {bits}-bit RSA brute force çalıştırılıyor...")
     public, private, p, q = generate_rsa_keypair(bits)
     e, n = public
-    
     message = messages[bits]
     message_int = str_to_int(message)
     
     if message_int >= n:
-        print(f"⚠️ Skipping {bits}-bit: message too large for modulus n={n}")
+        print(f"⚠️ {bits}-bit için atlanıyor: mesaj n'den büyük, n={n}")
         timings.append(0)
         continue
-
+    
     ciphertext = pow(message_int, e, n)
     start = time.perf_counter()
-    recovered, pf, qf = brute_force_rsa(e, n, ciphertext, timeout=1000)
+    if bits != 32:
+        recovered, pf, qf = brute_force_rsa(e, n, ciphertext, timeout=1000)
     end = time.perf_counter()
     elapsed = end - start
-
     timings.append(elapsed)
+    print(f"⏱️ Süre: {elapsed:.8f}s | Geri elde edilen mesaj: {recovered} | p={pf}, q={qf}")
 
-    print(f"⏱️ Time: {elapsed:.8f}s | Recovered: {recovered} | p={pf}, q={qf}")
-
-# === Plotting ===
+# Performans karşılaştırması için grafik çizimi:
 plt.figure(figsize=(10, 6))
 plt.semilogy(bit_lengths, timings, marker='o', linewidth=2, markersize=8)
-plt.xlabel("Bit Length", fontsize=12)
-plt.ylabel("Brute-force Time (s)", fontsize=12)
-plt.title("Brute-force RSA Decryption Time vs Bit Length (Log Scale)", fontsize=14)
+plt.xlabel("Bit Uzunluğu", fontsize=12)
+plt.ylabel("Brute-force Süresi (s)", fontsize=12)
+plt.title("Brute-force RSA Çözüm Süresi (Log Ölçek)", fontsize=14)
 plt.grid(True, which="both", ls="-", alpha=0.2)
 plt.xticks(bit_lengths)
 plt.tight_layout()
 plt.savefig("brute_force_times.png", dpi=300, bbox_inches='tight')
 plt.show()
 
-# === Estimations for 256-bit ===
-if 32 in bit_lengths and timings[bit_lengths.index(32)] > 0:
-    elapsed_32bit = timings[bit_lengths.index(32)]
-    estimated_256bit_time = estimate_256bit_crack_time(elapsed_32bit)
-    frontier_time = estimate_supercomputer_time(estimated_256bit_time)
-
-    print("\n📈 Estimated Time to Crack 256-bit RSA:")
-    print("🖥️  Local System:", format_seconds(estimated_256bit_time))
-    print("💻  Frontier Supercomputer:", format_seconds(frontier_time))
+# 32-bit RSA için ölçülen zamanı baz alarak tahmin yapalım:
+index_32 = bit_lengths.index(32)
+if timings[index_32] > 0:
+    elapsed_32bit = timings[index_32]
+    estimated_time = estimate_256bit_RSA_time(elapsed_32bit)
+    frontier_time = estimate_supercomputer_time(estimated_time)
+    
+    print("\n📈 256-bit RSA için (modül 256-bit) tahmini kırma süresi:")
+    print("🖥️  Yerel Sistem:", format_seconds(estimated_time))
+    print("💻  Frontier Süper Bilgisayar:", format_seconds(frontier_time))
 else:
-    print("\n⚠️ Could not compute 256-bit estimate: 32-bit timing missing.")
+    print("\n⚠️ 32-bit zamanlaması alınamadığı için tahmin yapılamadı.")
