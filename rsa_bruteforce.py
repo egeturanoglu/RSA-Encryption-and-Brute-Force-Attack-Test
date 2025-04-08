@@ -31,14 +31,13 @@ def generate_rsa_keypair(bits):
     d = inverse(e, phi)
     return (e, n), (d, n), p, q
 
-
-def estimate_256bit_crack_time(elapsed_32bit, bits=256):
+def estimate_256bit_RSA_time(elapsed_32bit, bits=256):
     bit_diff = bits - 32
     complexity_ratio = 2 ** (bit_diff // 2)
     estimated_time_seconds = elapsed_32bit * complexity_ratio
     return estimated_time_seconds
 
-def estimate_supercomputer_time(local_seconds, local_flops=1e11, super_flops=1.1e18):
+def estimate_supercomputer_time(local_seconds, local_flops=4.6e12, super_flops=1.1e18):
     speedup = super_flops / local_flops
     return local_seconds / speedup
 
@@ -80,8 +79,7 @@ for bits in bit_lengths:
     
     ciphertext = pow(message_int, e, n)
     start = time.perf_counter()
-    if bits != 32:
-        recovered, pf, qf = brute_force_rsa(e, n, ciphertext, timeout=1000)
+    recovered, pf, qf = brute_force_rsa(e, n, ciphertext, timeout=10000)
     end = time.perf_counter()
     elapsed = end - start
     timings.append(elapsed)
@@ -100,11 +98,15 @@ plt.savefig("brute_force_times.png", dpi=300, bbox_inches='tight')
 plt.show()
 
 # 32-bit RSA için ölçülen zamanı baz alarak tahmin yapalım:
+
 index_32 = bit_lengths.index(32)
+print(index_32)
 if timings[index_32] > 0:
     elapsed_32bit = timings[index_32]
-    estimated_time = estimate_256bit_RSA_time(elapsed_32bit)
+    estimated_time = estimate_256bit_RSA_time(elapsed_32bit, bits=32)
+
     frontier_time = estimate_supercomputer_time(estimated_time)
+
     
     print("\n📈 256-bit RSA için (modül 256-bit) tahmini kırma süresi:")
     print("🖥️  Yerel Sistem:", format_seconds(estimated_time))
